@@ -1,0 +1,38 @@
+# Environment — never commit secrets
+.env
+.env.local
+.env.production
+.env.staging
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+.eggs/
+build/
+*.egg
+venv/
+.venv/
+env/
+
+# Node
+node_modules/
+
+# Build output
+frontend/dist/
+
+# Docker volumes
+postgres_data/
