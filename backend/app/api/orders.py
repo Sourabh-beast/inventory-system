@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..crud.order import order_crud
@@ -9,8 +9,13 @@ router = APIRouter(prefix="/orders", tags=["Orders"])
 
 
 @router.get("", response_model=OrderListResponse)
-def list_orders(db: Session = Depends(get_db)):
-    items, total = order_crud.get_many(db)
+def list_orders(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+):
+    skip = (page - 1) * page_size
+    items, total = order_crud.get_many(db, skip=skip, limit=page_size)
     return OrderListResponse(items=items, total=total)
 
 
@@ -30,3 +35,10 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
     return order
+
+
+@router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_order(order_id: int, db: Session = Depends(get_db)):
+    deleted = order_crud.delete(db, order_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")

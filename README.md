@@ -10,12 +10,14 @@ A production-ready SaaS-style inventory and order management platform built with
 |---|---|
 | Frontend | React 18, Vite, TypeScript, Tailwind CSS, React Query |
 | Backend | FastAPI, SQLAlchemy 2, Pydantic v2, Alembic |
-| Database | PostgreSQL 16 |
+| Database | Supabase PostgreSQL |
 | Container | Docker, Docker Compose |
 
 ---
 
 ## Quick Start (Docker)
+
+This setup expects a Supabase PostgreSQL connection string in `backend/.env`.
 
 ```bash
 # 1. Clone and enter the project
@@ -31,7 +33,7 @@ open http://localhost:3000
 open http://localhost:8000/docs
 ```
 
-The seed script runs automatically and populates 10 products, 7 customers, and 5 sample orders.
+The seed script runs automatically and populates 10 products, 7 customers, and 5 sample orders on the target Supabase database if it is empty.
 
 ---
 
@@ -50,9 +52,6 @@ pip install -r requirements.txt
 
 # Copy environment config
 cp .env.example .env
-
-# Start PostgreSQL (or use Docker just for the DB)
-docker compose up postgres -d
 
 # Run database migrations
 alembic upgrade head
@@ -187,7 +186,7 @@ vercel deploy --prod
 
 1. Create a new Supabase project.
 2. Copy the **Connection string** (Session mode, port 5432).
-3. Set it as `DATABASE_URL` in your Render environment.
+3. Set it as `DATABASE_URL` in `backend/.env` for local Docker and in Render environment variables for production.
 4. Run `alembic upgrade head` to apply migrations.
 
 ---

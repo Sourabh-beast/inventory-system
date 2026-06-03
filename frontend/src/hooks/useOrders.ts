@@ -28,3 +28,17 @@ export function useCreateOrder() {
     },
   });
 }
+
+export function useDeleteOrder() {
+  const qc = useQueryClient();
+  return useMutation<void, Error, number>({
+    mutationFn: async (orderId) => {
+      await api.delete(`/orders/${orderId}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: [ORDERS_KEY] });
+      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
+}

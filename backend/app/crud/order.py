@@ -19,7 +19,7 @@ class OrderCRUD:
             .first()
         )
 
-    def get_many(self, db: Session) -> Tuple[List[Order], int]:
+    def get_many(self, db: Session, skip: int = 0, limit: int = 20) -> Tuple[List[Order], int]:
         query = (
             db.query(Order)
             .options(
@@ -29,7 +29,7 @@ class OrderCRUD:
             .order_by(Order.created_at.desc())
         )
         total = db.query(Order).count()
-        return query.all(), total
+        return query.offset(skip).limit(limit).all(), total
 
     def get_recent(self, db: Session, limit: int = 5) -> List[Order]:
         return (
@@ -88,6 +88,30 @@ class OrderCRUD:
 
         # Return fully loaded order
         return self.get(db, order.id)
+
+    def delete(self, db: Session, order_id: int) -> bool:
+        order = (
+            db.query(Order)
+            .options(joinedload(Order.items).joinedload(OrderItem.product))
+            .filter(Order.id == order_id)
+            .with_for_update()
+            .first()
+        )
+        if not order:
+            return False
+        # Restore stock for each item
+        for item in order.items:
+            product = (
+                db.query(Product)
+                .filter(Product.id == item.product_id)
+                .with_for_update()
+                .first()
+            )
+            if product:
+                product.stock_quantity += item.quantity
+        db.delete(order)
+        db.commit()
+        return True
 
 
 order_crud = OrderCRUD()

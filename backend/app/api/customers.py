@@ -11,9 +11,12 @@ router = APIRouter(prefix="/customers", tags=["Customers"])
 @router.get("", response_model=CustomerListResponse)
 def list_customers(
     search: Optional[str] = Query(None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
 ):
-    items, total = customer_crud.get_many(db, search=search)
+    skip = (page - 1) * page_size
+    items, total = customer_crud.get_many(db, search=search, skip=skip, limit=page_size)
     return CustomerListResponse(items=items, total=total)
 
 

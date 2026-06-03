@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, ShoppingCart, Trash2, ChevronDown, ChevronUp, Package } from "lucide-react";
+import { Plus, ShoppingCart, Trash2, ChevronDown, ChevronUp, Package, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { useOrders, useCreateOrder } from "@/hooks/useOrders";
+import { useOrders, useCreateOrder, useDeleteOrder } from "@/hooks/useOrders";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useAllProducts } from "@/hooks/useProducts";
 import { formatCurrency, formatDateFull } from "@/lib/utils";
@@ -39,15 +39,17 @@ let _seq = 0;
 const newLine = (): LineItem => ({ _key: ++_seq, product_id: 0, quantity: 1 });
 
 export default function Orders() {
-  const [open, setOpen]         = useState(false);
-  const [expanded, setExpanded] = useState<number | null>(null);
-  const [customerId, setCustomerId] = useState<number>(0);
-  const [lines, setLines]       = useState<LineItem[]>([newLine()]);
+  const [open, setOpen]               = useState(false);
+  const [expanded, setExpanded]       = useState<number | null>(null);
+  const [customerId, setCustomerId]   = useState<number>(0);
+  const [lines, setLines]             = useState<LineItem[]>([newLine()]);
+  const [cancelId, setCancelId]       = useState<number | null>(null);
 
   const { data: ordersData, isLoading } = useOrders();
   const { data: customersData }         = useCustomers();
   const { data: productsData }          = useAllProducts();
   const createMut                       = useCreateOrder();
+  const deleteMut                       = useDeleteOrder();
 
   const products  = productsData?.items  ?? [];
   const customers = customersData?.items ?? [];
@@ -62,6 +64,18 @@ export default function Orders() {
     const p = products.find((x) => x.id === l.product_id);
     return s + (p ? parseFloat(p.unit_price) * l.quantity : 0);
   }, 0);
+
+  async function confirmCancel() {
+    if (!cancelId) return;
+    try {
+      await deleteMut.mutateAsync(cancelId);
+      toast.success("Order cancelled — stock restored");
+      setCancelId(null);
+      if (expanded === cancelId) setExpanded(null);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to cancel order");
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -101,21 +115,21 @@ export default function Orders() {
         <div
           className="grid px-5 py-3"
           style={{
-            gridTemplateColumns: "110px 1fr 80px 180px 110px 40px",
+            gridTemplateColumns: "110px 1fr 80px 180px 110px 40px 40px",
             borderBottom: "1px solid rgba(255,255,255,0.05)",
             background: "rgba(255,255,255,0.018)",
           }}
         >
-          {["Order", "Customer", "Items", "Date", "Total", ""].map((h) => (
-            <span key={h} className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[#3E3E52]">{h}</span>
+          {["Order", "Customer", "Items", "Date", "Total", "", ""].map((h, i) => (
+            <span key={i} className="text-[10.5px] font-semibold uppercase tracking-[0.08em] text-[#3E3E52]">{h}</span>
           ))}
         </div>
 
         {isLoading ? (
           <div className="divide-y divide-[rgba(255,255,255,0.04)]">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="grid items-center px-5 py-4" style={{ gridTemplateColumns: "110px 1fr 80px 180px 110px 40px" }}>
-                {[...Array(6)].map((_, j) => <Skeleton key={j} className="h-4 rounded-[5px]" />)}
+              <div key={i} className="grid items-center px-5 py-4" style={{ gridTemplateColumns: "110px 1fr 80px 180px 110px 40px 40px" }}>
+                {[...Array(7)].map((_, j) => <Skeleton key={j} className="h-4 rounded-[5px]" />)}
               </div>
             ))}
           </div>
@@ -141,7 +155,7 @@ export default function Orders() {
                   {/* Main row */}
                   <div
                     className="data-row grid items-center px-5 py-3.5 cursor-pointer"
-                    style={{ gridTemplateColumns: "110px 1fr 80px 180px 110px 40px" }}
+                    style={{ gridTemplateColumns: "110px 1fr 80px 180px 110px 40px 40px" }}
                     onClick={() => setExpanded(isExpanded ? null : order.id)}
                   >
                     <span className="id-badge w-fit font-mono-feature">
@@ -166,6 +180,13 @@ export default function Orders() {
                         ? <ChevronUp className="w-3.5 h-3.5" />
                         : <ChevronDown className="w-3.5 h-3.5" />
                       }
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setCancelId(order.id); }}
+                      className="flex items-center justify-center w-7 h-7 rounded-[6px] transition-colors hover:bg-[rgba(239,68,68,0.1)] text-[#3E3E52] hover:text-red-400"
+                      title="Cancel order"
+                    >
+                      <X className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
@@ -224,6 +245,25 @@ export default function Orders() {
           </div>
         )}
       </div>
+
+      {/* Cancel order confirmation dialog */}
+      <Dialog open={cancelId !== null} onOpenChange={(v) => { if (!v) setCancelId(null); }}>
+        <DialogContent className="max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Cancel Order</DialogTitle>
+            <DialogDescription>
+              Cancel order <span className="font-mono text-[#E4E4F0]">#{String(cancelId ?? 0).padStart(4, "0")}</span>?
+              All stock will be restored to inventory.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" onClick={() => setCancelId(null)}>Keep Order</Button>
+            <Button variant="destructive" onClick={confirmCancel} disabled={deleteMut.isPending}>
+              {deleteMut.isPending ? "Cancelling…" : "Cancel Order"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* New order dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
